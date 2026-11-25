@@ -1,28 +1,36 @@
 #!/usr/bin/env python3
-"""THE MILLSTREAM - NI24 entry carrier (Final 6, @agusproblem).
+"""Carrier for THE MORNING STANDARD - News Image 20261124 entry.
 
-The front page (entry.png, 1024x1024) was drawn in this session by
-compose.py (Pillow, original flat scenes, dotted world map from real
-polygons). This program is the submitted entrypoint: standard library
-only, no network. It copies the finished image to the output directory,
-so both runs write byte-identical bytes. The output keeps the name
-entry.png either way, as the competition requires.
+Standard library only. Reads entry.png beside this file, checks the
+1024x1024 / <=1 MiB gate from the PNG header, then writes the image
+bytes exactly to standard output.
 """
 import os
-import shutil
+import struct
 import sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = os.path.join(HERE, "entry.png")
+MAX_BYTES = 1024 * 1024
+EXPECTED_W = 1024
+EXPECTED_H = 1024
 
 
 def main():
-    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR")
-    if not out_dir:
-        out_dir = "/output" if os.path.isdir("/output") else "out"
-    os.makedirs(out_dir, exist_ok=True)
-    dst = os.path.join(out_dir, "entry.png")
-    shutil.copyfile(SRC, dst)
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(here, "entry.png")
+    with open(path, "rb") as fh:
+        data = fh.read()
+    if len(data) > MAX_BYTES:
+        sys.stderr.write("entry.png exceeds 1 MiB gate\n")
+        return 1
+    if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n":
+        sys.stderr.write("entry.png is not a PNG\n")
+        return 1
+    width, height = struct.unpack(">II", data[16:24])
+    if width != EXPECTED_W or height != EXPECTED_H:
+        sys.stderr.write("entry.png is not 1024x1024\n")
+        return 1
+    sys.stdout.buffer.write(data)
+    sys.stdout.buffer.flush()
     return 0
 
 
